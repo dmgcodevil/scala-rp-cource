@@ -35,4 +35,5 @@ object Generators {
   def main(args: Array[String]) {
     print(pairDesugared.generate)
   }
+  unit
 }
