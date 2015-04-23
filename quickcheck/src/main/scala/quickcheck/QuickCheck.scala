@@ -14,7 +14,6 @@ abstract class QuickCheckHeap extends Properties("Heap") with IntHeap {
     findMin(h) == a
   }
 
-
   /**
    * insert any two elements into an empty heap, finding the minimum of the resulting heap should
    * get the smallest of the two elements back.
@@ -25,11 +24,46 @@ abstract class QuickCheckHeap extends Properties("Heap") with IntHeap {
   }
 
   /**
+   * Given any two heaps. Finding a minimum of the melding of any two heaps should return a minimum of one or the other.
+   */
+  property("min3") = forAll { (h1: H, h2: H) =>
+    val h1Min = findMin(h1)
+    val h2Min = findMin(h2)
+    val actualMin = findMin(meld(h1, h2))
+    actualMin == h1Min || actualMin == h2Min
+  }
+
+  property("meld2") = forAll { (h1: H, h2: H) =>
+    def heapEqual(h1: H, h2: H): Boolean =
+      if (isEmpty(h1) && isEmpty(h2)) true
+      else {
+        val m1 = findMin(h1)
+        val m2 = findMin(h2)
+        m1 == m2 && heapEqual(deleteMin(h1), deleteMin(h2))
+      }
+    heapEqual(meld(h1, h2),
+      meld(deleteMin(h1), insert(findMin(h1), h2)))
+  }
+
+  /**
    * Insert an element into an empty heap, then delete the minimum, the resulting heap should be empty.
    */
   property("deleteMin") = forAll { (e1: Int) =>
     val h = insert(e1, empty)
     isEmpty(deleteMin(h))
+  }
+
+  /**
+   * Insert an element into an empty heap, then delete the minimum, the resulting heap should be empty.
+   */
+  property("findMin deleteMin") = forAll { (h1: H) =>
+    var mins = List[Int]()
+    var heap = h1
+    while( !isEmpty(heap) ){
+      mins = mins:+ findMin(heap)
+      heap = deleteMin(heap)
+    }
+    sorted(mins)
   }
 
   /**
@@ -43,20 +77,19 @@ abstract class QuickCheckHeap extends Properties("Heap") with IntHeap {
     !isEmpty(h3)
   }
 
-  /**
-   * Given any heap, you should get a sorted sequence of elements when continually
-   * finding and deleting minima.
-   */
-  property("gen1") = forAll { (h1: H, h2: H) =>
-    !isEmpty(h1)
+
+
+  lazy val genHeap: Gen[H] = {
+    val test = for {
+      n <- arbitrary[Int]
+      h <- frequency((1, empty), (5, genHeap))
+    } yield insert(n, h)
+    test
   }
 
-  // todo
-  lazy val genHeap: Gen[H] = for {
-    n <- arbitrary[Int]
-    h <- frequency((1, empty), (10, genHeap))
-  } yield insert(n, h)
 
   implicit lazy val arbHeap: Arbitrary[H] = Arbitrary(genHeap)
 
+
+  def sorted(l:List[Int]) = l.view.zip(l.tail).forall(x => x._1 <= x._2)
 }
