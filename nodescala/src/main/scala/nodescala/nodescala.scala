@@ -10,6 +10,7 @@ import scala.collection.JavaConversions._
 import java.util.concurrent.{Executor, ThreadPoolExecutor, TimeUnit, LinkedBlockingQueue}
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import java.net.InetSocketAddress
+import scala.util.control._
 
 /** Contains utilities common to the NodeScala© framework.
  */
@@ -29,7 +30,18 @@ trait NodeScala {
    *  @param token        the cancellation token
    *  @param body         the response to write back
    */
-  private def respond(exchange: Exchange, token: CancellationToken, response: Response): Unit = ???
+  private def respond(exchange: Exchange, token: CancellationToken, response: Response): Unit = {
+    val loop = new Breaks
+    loop.breakable {
+      for (value <- response) {
+        if (token.isCancelled) {
+          loop.break()
+        }
+        exchange.write(value)
+      }
+      exchange.close()
+    }
+  }
 
   /** A server:
    *  1) creates and starts an http listener
@@ -41,7 +53,27 @@ trait NodeScala {
    *  @param handler        a function mapping a request to a response
    *  @return               a subscription that can stop the server and all its asynchronous operations *entirely*
    */
-  def start(relativePath: String)(handler: Request => Response): Subscription = ???
+  def start(relativePath: String)(handler: Request => Response): Subscription = {
+    val listener = createListener(relativePath)
+    val listenerSubscription = listener.start()
+
+    val working = Future.run() { ct =>
+      Future {
+        while (ct.nonCancelled) {
+          val req = listener.nextRequest()
+          req onSuccess {
+            case (r, exchange) => respond(exchange, ct, handler(r))
+          }
+          //println("working")
+        }
+        println("done")
+        Future.delay(50 millis) onComplete { _ => listenerSubscription.unsubscribe()}
+
+      }
+    }
+
+    working
+  }
 
 }
 
