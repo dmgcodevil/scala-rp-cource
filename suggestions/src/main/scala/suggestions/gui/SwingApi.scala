@@ -10,7 +10,7 @@ import scala.swing.Reactions
 import scala.util.{ Try, Success, Failure }
 import scala.swing.Reactions.Reaction
 import scala.swing.event.Event
-import rx.lang.scala.{Subscription, Observer, Observable}
+import rx.lang.scala.{Subscriber, Subscription, Observer, Observable}
 
 /** Basic facilities for dealing with Swing-like components.
 *
@@ -53,29 +53,48 @@ trait SwingApi {
       * @return an observable with a stream of text field updates
       */
     def textValues: Observable[String] = {
+      Observable[String]((observer: Observer[String]) => {
+        field subscribe {
+          case ValueChanged(tf) => observer.onNext(tf.text)
+          case _ => ()
+        }
 
-      def observer(o: Observer[String]): Subscription = {
-        field.subscribe({
-          case e: ValueChanged => o.onNext(field.text)
-        })
-
-        Subscription.apply()
-      }
-      Observable.create(observer)
+        Subscription {
+          field unsubscribe {
+            case ValueChanged(tf) => observer.onCompleted()
+            case _ => ()
+          }
+        }
+      })
     }
 
-
-
   }
+
 
   implicit class ButtonOps(button: Button) {
 
     /** Returns a stream of button clicks.
-     *
-     * @param field the button
-     * @return an observable with a stream of buttons that have been clicked
-     */
-    def clicks: Observable[Button] = ???
+      *
+      * @param field the button
+      * @return an observable with a stream of buttons that have been clicked
+      */
+    def clicks: Observable[Button] = {
+      Observable[Button]((observer: Observer[Button]) => {
+        button subscribe {
+          case ButtonClicked(btn) => observer.onNext(btn)
+          case _ => ()
+        }
+
+        Subscription {
+          button unsubscribe {
+            case ButtonClicked(btn) => observer.onCompleted()
+            case _ => ()
+          }
+        }
+      })
+    }
+
   }
+
 
 }
