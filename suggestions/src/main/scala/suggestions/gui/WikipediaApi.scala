@@ -62,10 +62,7 @@ trait WikipediaApi {
      */
     def timedOut(totalSec: Long): Observable[T] = {
       require(totalSec >= 0)
-      val timeOut = Observable.interval(totalSec seconds)
-        .filter(_ > 0)
-        .take(1)
-      obs.takeUntil(timeOut)
+      obs.takeUntil(Observable.interval(totalSec seconds))
     }
 
     /** Given a stream of events `obs` and a method `requestMethod` to map a request `T` into
@@ -99,4 +96,6 @@ trait WikipediaApi {
   }
 
 }
+
+
 
